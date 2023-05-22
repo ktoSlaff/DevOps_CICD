@@ -1,0 +1,118 @@
+stages:
+  - build
+  - test
+  - deploy
+  - notify
+
+
+build cat:
+  stage: build
+  tags:
+    - shell
+  script:
+    - cd $CI_PROJECT_DIR/src/SimpleBash/cat/
+    - make
+  artifacts:
+    expire_in: 30 days
+    paths:
+      - $CI_PROJECT_DIR/src/SimpleBash/cat/s21_cat
+  after_script:
+    - cd $CI_PROJECT_DIR/src/
+    - ./cicd-notify.sh
+
+build grep:
+  stage: build
+  tags:
+    - shell
+  script:
+    - cd $CI_PROJECT_DIR/src/SimpleBash/grep/
+    - make
+  artifacts:
+    expire_in: 30 days
+    paths:
+      - $CI_PROJECT_DIR/src/SimpleBash/grep/s21_grep
+  after_script:
+    - cd $CI_PROJECT_DIR/src/
+    - ./cicd-notify.sh
+
+codestyle test cat:
+  stage: build
+  tags: 
+    - shell
+  script:
+    - cd $CI_PROJECT_DIR/src/SimpleBash/cat/
+    - make style_check
+  after_script:
+    - cd $CI_PROJECT_DIR/src/
+    - ./cicd-notify.sh
+
+codestyle test grep:
+  stage: build
+  tags:
+    - shell
+  script:
+    - cd $CI_PROJECT_DIR/src/SimpleBash/grep/
+    - make style_check
+  after_script:
+    - cd $CI_PROJECT_DIR/src/
+    - ./cicd-notify.sh
+
+integration test cat:
+  stage: test
+  tags:
+    - shell
+  needs:
+    - codestyle test cat
+    - job: build cat
+      artifacts: true
+  script:
+    - cd $CI_PROJECT_DIR/src/SimpleBash/cat/
+    - ./tests.sh
+  after_script:
+    - cd $CI_PROJECT_DIR/src/
+    - ./cicd-notify.sh
+
+integration test grep:
+  stage: test
+  tags:
+    - shell
+  needs:
+    - codestyle test grep
+    - job: build grep
+      artifacts: true
+  script:
+    - cd $CI_PROJECT_DIR/src/SimpleBash/grep/
+    - ./test_grep_1.sh
+    - ./test_grep_2.sh
+    - ./test_grep_3.sh
+  after_script:
+    - cd $CI_PROJECT_DIR/src/
+    - ./cicd-notify.sh
+
+production:
+  stage: deploy
+  tags:
+    - shell
+  needs:
+    - integration test cat
+    - integration test grep
+    - job: build cat
+      artifacts: true
+    - job: build grep
+      artifacts: true
+  script:
+    - cd $CI_PROJECT_DIR/src/
+    - chmod +x deploy.sh
+    - ./deploy.sh
+  after_script:
+    - cd $CI_PROJECT_DIR/src/
+    - ./cicd-notify.sh
+  
+pipeline status:
+  stage: notify
+  tags:
+    - shell
+  script:
+    - cd $CI_PROJECT_DIR/src/ 
+    - ./cicd-notify.sh
+  when: on_failure
